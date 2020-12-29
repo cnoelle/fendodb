@@ -651,7 +651,7 @@ public class SlotsDb implements CloseableDataRecorder {
 					= org.smartrplace.logging.fendodb.impl.FileUtils.readJavaBytes(slotsDbStoragePath.getParent(), slotsDbStoragePath.getFileName().toString());
 				configurations.putAll(configs);
 			} catch (Exception e) {
-				FileObjectProxy.logger.error("Failed to read persisted FendoDb storages", e);
+				FileObjectProxy.logger.error("Failed to read persisted FendoDb storages {}", slotsDbStoragePath, e);
 			}
 		}
 		if (addFolders && path != null) {

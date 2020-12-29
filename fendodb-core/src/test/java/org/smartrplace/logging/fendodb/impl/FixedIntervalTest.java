@@ -23,6 +23,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.ogema.core.channelmanager.measurements.FloatValue;
 import org.ogema.core.channelmanager.measurements.Quality;
@@ -33,9 +34,11 @@ import org.ogema.core.recordeddata.RecordedDataConfiguration.StorageType;
 import org.ogema.recordeddata.DataRecorderException;
 import org.ogema.recordeddata.RecordedDataStorage;
 
+
 public class FixedIntervalTest extends DbTest {
 
 	@Test
+	//@Ignore
 	/**
 	 * Writes a single value to a slotsdb and reads it back
 	 *
@@ -74,6 +77,7 @@ public class FixedIntervalTest extends DbTest {
 	}
 
 	@Test
+	//@Ignore
 	/**
 	 * Writes a single value to a slotsdb and reads it back
 	 *

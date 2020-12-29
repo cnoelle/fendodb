@@ -16,6 +16,7 @@
 package org.smartrplace.logging.fendodb.impl;
 
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.Buffer;
@@ -166,8 +167,13 @@ public class ConstantIntervalFileObject extends FileObject {
 				fis.getChannel().position(getBytePosition(timestamp));
 				Double toReturn = dis.readDouble();
 				if (!Double.isNaN(toReturn)) {
-
-					return new SampledValue(DoubleValues.of(toReturn), timestamp, Quality.getQuality(dis.readByte()));
+					try {
+						return new SampledValue(DoubleValues.of(toReturn), timestamp, Quality.getQuality(dis.readByte()));
+					} catch(EOFException e) {
+						System.out.println("Caught EOFException reafing from "+dataFile.getPath());
+						//e.printStackTrace();
+						return null;
+					}
 				}
 			}
 		}

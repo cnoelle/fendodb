@@ -654,7 +654,7 @@ public final class FileObjectProxy {
 	public SampledValue read(final String label, long timestamp, final RecordedDataConfiguration configuration) throws IOException {
 		// label = URLEncoder.encode(label,Charset.defaultCharset().toString());
 		// //encodes label to supported String for Filenames.
-		//timestamp = getRoundedTimestamp(timestamp, configuration);
+		timestamp = getRoundedTimestamp(timestamp, configuration);
 
 //		String strDate = getStrDate(timestamp);
 
@@ -879,10 +879,10 @@ public final class FileObjectProxy {
 			logger.trace("Called: read(" + label + ", " + start + ", " + end + ")");
 		}
 		
-		/*if (configuration != null && configuration.getStorageType() == StorageType.FIXED_INTERVAL) {
+		if (configuration != null && configuration.getStorageType() == StorageType.FIXED_INTERVAL) {
 			start = getRoundedTimestamp(start, configuration);
 			end = getRoundedTimestamp(end, configuration);
-		}*/
+		}
 //		List<SampledValue> toReturn = new Vector<SampledValue>();
 		final List<SampledValue> toReturn = new ArrayList<>();
 		if (start > end) {

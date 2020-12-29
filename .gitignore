@@ -10,6 +10,7 @@ testdata/
 *.class
 pom.xml.versionsBackup
 pom.xml.releaseBackup
+dependency-reduced-pom.xml
 docker/bin/
 docker/data/
 docker/security/

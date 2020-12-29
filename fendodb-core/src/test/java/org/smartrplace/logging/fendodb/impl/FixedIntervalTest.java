@@ -37,8 +37,8 @@ import org.ogema.recordeddata.RecordedDataStorage;
 
 public class FixedIntervalTest extends DbTest {
 
-	//@Test
-	@Ignore
+	@Test
+	//@Ignore
 	/**
 	 * Writes a single value to a slotsdb and reads it back
 	 *
@@ -76,8 +76,8 @@ public class FixedIntervalTest extends DbTest {
 
 	}
 
-	//@Test
-	@Ignore
+	@Test
+	//@Ignore
 	/**
 	 * Writes a single value to a slotsdb and reads it back
 	 *

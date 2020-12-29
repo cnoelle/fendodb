@@ -43,7 +43,7 @@ public abstract class FileObject {
 	protected DataInputStream dis;
 	protected FileInputStream fis;
 	protected boolean canWrite;
-	protected boolean canRead;
+	protected volatile boolean canRead;
 	
 	private final RecordedDataCache cache;
 
@@ -154,34 +154,40 @@ public abstract class FileObject {
 	}
 
 	protected void enableInput() throws IOException {
-		/*
-		 * Close Output Streams for enabling input.
-		 */
-		if (dos != null) synchronized(dos) {
-			cache.invalidate();
-			assert cache.getCache() == null : "Invalidated cache is still alive";
-			dos.flush();
-			dos.close();
-			dos = null;
+		if (canRead)
+			return;
+		synchronized (this) {
+			if (canRead)
+				return;
+			/*
+			 * Close Output Streams for enabling input.
+			 */
+			if (dos != null) {
+				cache.invalidate();
+				assert cache.getCache() == null : "Invalidated cache is still alive";
+				dos.flush();
+				dos.close();
+				dos = null;
+			}
+			if (bos != null) {
+				bos.close();
+				bos = null;
+			}
+			if (fos != null) {
+				fos.close();
+				fos = null;
+			}
+	
+			/*
+			 * enabling input
+			 */
+			if (fis == null || dis == null) {
+				fis = new FileInputStream(dataFile);
+				dis = new DataInputStream(fis);
+			}
+			canWrite = false;
+			canRead = true;
 		}
-		if (bos != null) synchronized(bos) {
-			bos.close();
-			bos = null;
-		}
-		if (fos != null) synchronized(fos) {
-			fos.close();
-			fos = null;
-		}
-
-		/*
-		 * enabling input
-		 */
-		if (fis == null || dis == null) {
-			fis = new FileInputStream(dataFile);
-			dis = new DataInputStream(fis);
-		}
-		canWrite = false;
-		canRead = true;
 	}
 
 	/**

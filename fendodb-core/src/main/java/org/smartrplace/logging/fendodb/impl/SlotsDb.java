@@ -66,7 +66,6 @@ import org.ogema.core.channelmanager.measurements.SampledValue;
 import org.ogema.core.recordeddata.RecordedDataConfiguration;
 import org.ogema.core.recordeddata.RecordedDataConfiguration.StorageType;
 import org.ogema.recordeddata.DataRecorderException;
-import org.osgi.service.log.LogEntry;
 import org.smartrplace.logging.fendodb.CloseableDataRecorder;
 import org.smartrplace.logging.fendodb.DataRecorderReference;
 import org.smartrplace.logging.fendodb.FendoDbConfiguration;

@@ -84,9 +84,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 		int dataSetCount = getDataSetCountInternal();
 		if (dataSetCount > 1) {
 			try {
-				if (!canRead) {
-					enableInput();
-				}
+				enableInput();
 				fis.getChannel().position(headerend);
 				byte[] b = new byte[(int) (length - headerend)];
 				dis.read(b, 0, b.length);
@@ -110,10 +108,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 
 //		List<SampledValue> toReturn = new Vector<SampledValue>();
 		final List<SampledValue> toReturn = new ArrayList<>(getDataSetCount());
-		if (!canRead) {
-			enableInput();
-		}
-
+		enableInput();
 		long startpos = headerend;
 
 		fis.getChannel().position(startpos);
@@ -144,11 +139,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 	protected List<SampledValue> readFullyInternal() throws IOException {
 //		List<SampledValue> toReturn = new Vector<SampledValue>();
 		final List<SampledValue> toReturn = new ArrayList<>(getDataSetCountInternal());
-
-		if (!canRead) {
-			enableInput();
-		}
-
+		enableInput();
 		long startpos = headerend;
 
 		try {
@@ -183,10 +174,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 	@Override
 	public SampledValue read(long timestamp) throws IOException {
 		// TODO Search the special value
-		if (!canRead) {
-			enableInput();
-		}
-
+		enableInput();
 		long startpos = headerend;
 
 		fis.getChannel().position(startpos);
@@ -218,10 +206,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 
 	@Override
 	public SampledValue readNextValue(long timestamp) throws IOException {
-		if (!canRead) {
-			enableInput();
-		}
-
+		enableInput();
 		long startpos = headerend;
 
 		fis.getChannel().position(startpos);
@@ -245,9 +230,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 
 	@Override
 	public SampledValue readPreviousValue(long timestamp) throws IOException {
-		if (!canRead) {
-			enableInput();
-		}
+		enableInput();
 		long startpos = headerend;
 
 		/*
@@ -297,9 +280,7 @@ public class FlexibleIntervalFileObject extends FileObject {
 			return getDataSetCountInternal();
 		else if (start > fileEnd || end < startTimeStamp)
 			return 0;
-		if (!canRead) {
-			enableInput();
-		}
+		enableInput();
 		long startpos = headerend;
 		fis.getChannel().position(startpos);
 		byte[] b = new byte[(int) (length - headerend)];

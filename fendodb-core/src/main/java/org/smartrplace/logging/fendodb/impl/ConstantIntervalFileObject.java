@@ -161,9 +161,7 @@ public class ConstantIntervalFileObject extends FileObject {
 
 		if ((timestamp - startTimeStamp) % storagePeriod == 0) {
 			if (timestamp >= startTimeStamp && timestamp <= getTimestampForLatestValueInternal()) {
-				if (!canRead) {
-					enableInput();
-				}
+				enableInput();
 				fis.getChannel().position(getBytePosition(timestamp));
 				Double toReturn = dis.readDouble();
 				if (!Double.isNaN(toReturn)) {
@@ -207,9 +205,7 @@ public class ConstantIntervalFileObject extends FileObject {
 				endRounded = getTimestampForLatestValueInternal();
 			}
 
-			if (!canRead) {
-				enableInput();
-			}
+			enableInput();
 			long timestampcounter = start;
 			long startPos = getBytePosition(start);
 			long endPos = getBytePosition(endRounded);
@@ -256,9 +252,7 @@ public class ConstantIntervalFileObject extends FileObject {
 		long endPos = getBytePosition(getTimestampForLatestValueInternal());
 		for (int i = 0; i <= (endPos - startPos) / 9; i++) {
 			if (timestamp >= startTimeStamp && timestamp <= getTimestampForLatestValueInternal()) {
-				if (!canRead) {
-					enableInput();
-				}
+				enableInput();
 				fis.getChannel().position(getBytePosition(timestamp));
 				Double toReturn = dis.readDouble();
 				if (!Double.isNaN(toReturn)) {
@@ -279,9 +273,7 @@ public class ConstantIntervalFileObject extends FileObject {
 
 		for (int i = 0; i <= (endPos - startPos) / 9; i++) {
 			if (timestamp >= startTimeStamp && timestamp <= getTimestampForLatestValueInternal()) {
-				if (!canRead) {
-					enableInput();
-				}
+				enableInput();
 				fis.getChannel().position(getBytePosition(timestamp));
 				Double toReturn = dis.readDouble();
 				if (!Double.isNaN(toReturn)) {

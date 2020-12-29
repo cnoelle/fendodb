@@ -17,8 +17,6 @@ package org.smartrplace.logging.fendodb.impl;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -546,21 +544,20 @@ public class SlotsDb implements CloseableDataRecorder {
 	private final static FendoDbConfiguration readConfig(final Path path) throws IOException {
 		if (!Files.exists(path))
 			return null;
-		try (ObjectInputStream ois = new ObjectInputStream(Files.newInputStream(path))) {
-			return (FendoDbConfiguration) ois.readObject();
+		try {
+			return org.smartrplace.logging.fendodb.impl.FileUtils.readJavaBytes(path.getParent(), path.getFileName().toString());
 		} catch (ClassNotFoundException | ClassCastException e) {
 			throw new IOException(e);
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	private final static Map<String,Map<String, List<String>>> readTags(final Path path) throws IOException {
 		if (!Files.isRegularFile(path))
 			return null;
-		try (ObjectInputStream ois = new ObjectInputStream(Files.newInputStream(path))) {
-			return (Map<String,Map<String, List<String>>>) ois.readObject();
-		} catch (EOFException e1) {
-			FileObjectProxy.logger.warn("EOFException in " + path);
+		try {
+			return org.smartrplace.logging.fendodb.impl.FileUtils.readJavaBytes(path.getParent(), path.getFileName().toString());
+		} catch (EOFException e1) { // XXX
+			FileObjectProxy.logger.warn("EOFException in {}", path);
 			return null;
 		} catch (ClassCastException | ClassNotFoundException e) {
 			throw new IOException(e);
@@ -568,10 +565,10 @@ public class SlotsDb implements CloseableDataRecorder {
 	}
 
 	private final static void persistConfig(final Path path, final FendoDbConfiguration config) {
-		try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(path))) {
-			oos.writeObject(config);
+		try {
+			org.smartrplace.logging.fendodb.impl.FileUtils.writeJavaBytes(path.getParent(), path.getFileName().toString(), config);
 		} catch (IOException e) {
-			FileObjectProxy.logger.warn("Failed to serialize SlotsDb configuration at path {}",path,e);
+			FileObjectProxy.logger.warn("Failed to serialize SlotsDb configuration at path {}", path, e);
 		}
 	}
 
@@ -586,10 +583,10 @@ public class SlotsDb implements CloseableDataRecorder {
 				String id = iterator.next();
 				configurations.put(id, slotsDbStorages.get(id).getConfiguration());
 			}
-			try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(slotsDbStoragePath))) {
-				oos.writeObject(configurations);
+			try {
+				org.smartrplace.logging.fendodb.impl.FileUtils.writeJavaBytes(slotsDbStoragePath.getParent(), slotsDbStoragePath.getFileName().toString(), configurations);
 			} catch (IOException e) {
-				e.printStackTrace();
+				FileObjectProxy.logger.warn("Failed to persist FendoDb storage ids");
 			}
 		}
 	}
@@ -599,10 +596,10 @@ public class SlotsDb implements CloseableDataRecorder {
 		synchronized (slotsDbStorages) {
 			final Map<String, Map<String, List<String>>> tags = slotsDbStorages.entrySet().stream()
 				.collect(Collectors.toMap(entry -> entry.getKey(), entry -> entry.getValue().getProperties()));
-			try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(tagsPath))) {
-				oos.writeObject(tags);
+			try {
+				org.smartrplace.logging.fendodb.impl.FileUtils.writeJavaBytes(tagsPath.getParent(), tagsPath.getFileName().toString(), tags);
 			} catch (IOException e) {
-				e.printStackTrace();
+				FileObjectProxy.logger.warn("Failed to persist tags at {}", tagsPath, e);
 			}
 		}
 	}
@@ -649,11 +646,12 @@ public class SlotsDb implements CloseableDataRecorder {
 //		final File configFile = new File(slotsDbStoragePath);
 		final Map<String, RecordedDataConfiguration> configurations = new HashMap<>();
 		if (Files.exists(slotsDbStoragePath)) {
-			try (ObjectInputStream ois = new ObjectInputStream(Files.newInputStream(slotsDbStoragePath))) {
-				 configurations.putAll((Map<? extends String, ? extends RecordedDataConfiguration>) ois.readObject());
+			try {
+				final Map<? extends String, ? extends RecordedDataConfiguration> configs 
+					= org.smartrplace.logging.fendodb.impl.FileUtils.readJavaBytes(slotsDbStoragePath.getParent(), slotsDbStoragePath.getFileName().toString());
+				configurations.putAll(configs);
 			} catch (Exception e) {
-				System.out.println("Could not read: "+slotsDbStoragePath);
-				e.printStackTrace();
+				FileObjectProxy.logger.error("Failed to read persisted FendoDb storages {}", slotsDbStoragePath, e);
 			}
 		}
 		if (addFolders && path != null) {

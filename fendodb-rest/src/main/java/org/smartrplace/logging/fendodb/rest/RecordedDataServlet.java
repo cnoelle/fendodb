@@ -21,6 +21,8 @@ import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.URLDecoder;
 import java.nio.file.Paths;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -80,11 +82,26 @@ import org.smartrplace.logging.fendodb.tools.config.FendodbSerializationFormat;
 public class RecordedDataServlet extends HttpServlet {
 	
 	private static final String PROPERTY_DEFAULT_MAX_NR_VALUES = "org.smartrplace.logging.fendo.rest.max_nr_values";
+	private static final String ALLOWED_ORIGIN_PROPERTY = "org.smartrplace.logging.fendo.rest.allowedOrigin";
+	private static final String MAX_AGE_PROPERTY = "org.smartrplace.logging.fendo.rest.allowedOriginMaxAge";
 	private static final int DEFAULT_MAX_NR_VALUES = 20000;
+	private static final int DEFAULT_CORS_MAX_AGE = 600; // 10 min
 	private int MAX_NR_VALUES;
+	private List<String> allowedOrigins;
+	/**
+	 * In seconds. A values of -1 disables caching, a value < -1 indicates not to set the header at all 
+	 * (which may default to a short caching interval, such as 5s, depending on the browser). Typical value
+	 * ranges between a few seconds and a few hours.
+	 * Default value: 10min
+	 * 
+	 * The allowed value range is capped, depending on the browser, see  
+	 * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Max-Age
+	 */
+	private int maxAge;
 	
 //	private static final Logger logger = LoggerFactory.getLogger(RecordedDataServlet.class);
     private static final long serialVersionUID = 1L;
+    private static final String ALLOWED_METHODS = "OPTIONS, GET, POST, PUT, DELETE";
     public static final String CONTEXT = "org.smartrplace.logging.fendodb.rest";
     public static final String CONTEXT_FILTER = 
     		"(" + HttpWhiteboardConstants.HTTP_WHITEBOARD_CONTEXT_NAME + "=" + CONTEXT + ")";
@@ -111,6 +128,39 @@ public class RecordedDataServlet extends HttpServlet {
     	if (maxNr <= 0)
     		maxNr = DEFAULT_MAX_NR_VALUES;
     	MAX_NR_VALUES = maxNr;
+    	final String allowedOrigin0 = AccessController.doPrivileged(new PrivilegedAction<String>() {
+
+			@Override
+			public String run() {
+				return ctx.getProperty(ALLOWED_ORIGIN_PROPERTY);
+			}
+		});
+		if (allowedOrigin0 == null || allowedOrigin0.trim().isEmpty()) {
+			this.allowedOrigins = null;
+			return;
+		}
+		final String allowedOriginMaxAge = AccessController.doPrivileged(new PrivilegedAction<String>() {
+
+			@Override
+			public String run() {
+				return ctx.getProperty(MAX_AGE_PROPERTY);
+			}
+		});
+		this.allowedOrigins = Arrays.stream(allowedOrigin0.split(","))
+				.map(String::trim)
+				.filter(str -> !str.isEmpty())
+				.collect(Collectors.toList());
+		if (allowedOriginMaxAge != null) {
+			try {
+				this.maxAge = Integer.parseInt(allowedOriginMaxAge);
+			} catch (NumberFormatException e) {
+				LoggerFactory.getLogger(getClass()).warn("Invalid max age property {}: {}. Should be an integer. Disabling CORS maxAge property.",
+						MAX_AGE_PROPERTY, allowedOriginMaxAge);
+				this.maxAge = -2;
+			}
+		} else {
+			this.maxAge = DEFAULT_CORS_MAX_AGE;
+		}
     }
     
     @Reference
@@ -127,6 +177,39 @@ public class RecordedDataServlet extends HttpServlet {
     		policyOption=ReferencePolicyOption.GREEDY
     )
     private volatile ComponentServiceObjects<FrameworkClock> clockService;
+    
+    @Override
+    protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    	resp.setHeader("Allow", ALLOWED_METHODS);
+        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
+    	// see also https://github.com/cnoelle/ogema/blob/rest-cors/src/core/ref-impl/security/src/main/java/org/ogema/impl/security/RestCorsManagerImpl.java
+        if (this.allowedOrigins != null) {
+        	final String origin = req.getHeader("Origin");
+        	if (origin != null) {
+        		if (this.allowedOrigins.contains("*") || this.allowedOrigins.contains(origin)) {
+        			resp.setHeader("Access-Control-Allow-Origin", origin);
+        			resp.setHeader("Access-Control-Allow-Credentials", "true");
+        			resp.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+        			resp.setHeader("Access-Control-Allow-Methods", ALLOWED_METHODS);
+        			resp.setHeader("Vary", "Origin");
+        			if (this.maxAge > -2)
+        				resp.setHeader("Access-Control-Max-Age", String.valueOf(this.maxAge));
+        		}
+        	}
+        }
+        resp.setStatus(200);
+    }
+    
+    private void handleOrigin(final HttpServletRequest req, final HttpServletResponse resp) {
+		if (this.allowedOrigins != null) {
+        	final String origin = req.getHeader("Origin");
+        	if (origin != null) {
+        		if (this.allowedOrigins.contains("*") || this.allowedOrigins.contains(origin)) {
+        			resp.setHeader("Access-Control-Allow-Origin", origin);
+        		}
+        	}
+        }
+	}
 
     // TODO support multipart?
     @Override
@@ -142,6 +225,7 @@ public class RecordedDataServlet extends HttpServlet {
     		resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Target missing");
     		return;
     	}
+    	this.handleOrigin(req, resp);
     	final String id = req.getParameter(Parameters.PARAM_ID);
     	final FendodbSerializationFormat format = getFormat(req, false);
     	try (final CloseableDataRecorder recorder = factory.getExistingInstance(Paths.get(databasePath))) {
@@ -194,6 +278,7 @@ public class RecordedDataServlet extends HttpServlet {
     		resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Target missing");
     		return;
     	}
+    	this.handleOrigin(req, resp);
     	if (target.equalsIgnoreCase("database")) {
     		try (final CloseableDataRecorder recorder = factory.getInstance(Paths.get(databasePath))) {
         		if (recorder == null) {
@@ -298,6 +383,7 @@ public class RecordedDataServlet extends HttpServlet {
     		resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Target missing");
     		return;
     	}
+    	this.handleOrigin(req, resp);
     	try (final CloseableDataRecorder recorder = factory.getExistingInstance(Paths.get(databasePath))) {
     		if (recorder == null) {
 	    		resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Database not found: " + databasePath);
@@ -385,6 +471,7 @@ public class RecordedDataServlet extends HttpServlet {
     protected void doGet(final HttpServletRequest req, final HttpServletResponse resp) throws ServletException, IOException {
     	final String databasePath = req.getParameter(Parameters.PARAM_DB);
     	resp.setCharacterEncoding("UTF-8");
+    	this.handleOrigin(req, resp);
     	final FendodbSerializationFormat format = getFormat(req, true);
     	if (format == FendodbSerializationFormat.JSON) { // special case: requesting data in influx format
     		final String q = req.getParameter("q");

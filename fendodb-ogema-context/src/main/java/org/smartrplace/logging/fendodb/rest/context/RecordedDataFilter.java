@@ -63,6 +63,8 @@ public class RecordedDataFilter extends ServletContextHelper {
 	
     @Override
     public boolean handleSecurity(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    	if ("OPTIONS".equals(request.getMethod()))
+    		return true;
     	try {
     		final AccessControlContext ctx = getContext(request);
     		if (ctx == null) {

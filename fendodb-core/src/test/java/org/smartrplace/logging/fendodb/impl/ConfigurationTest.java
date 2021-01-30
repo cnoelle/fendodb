@@ -16,6 +16,9 @@
 package org.smartrplace.logging.fendodb.impl;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.ogema.core.channelmanager.measurements.FloatValue;
@@ -71,5 +74,47 @@ public class ConfigurationTest extends FactoryTest {
 			rds.insertValue(new SampledValue(new FloatValue(23), 123, Quality.GOOD));
 		}
 	}
+	
+	@Test
+	public void openFoldersLimitWorks() throws DataRecorderException, IOException {
+		final int maxOpenFolders = 8;
+		final FendoDbConfiguration config = FendoDbConfigurationBuilder.getInstance()
+				.setMaxOpenFolders(maxOpenFolders) 
+				.build();
+		try (final SlotsDb slots = new SlotsDb(testPath, null, config, null)) {
+			final RecordedDataConfiguration cfg = new RecordedDataConfiguration();
+			cfg.setStorageType(StorageType.ON_VALUE_UPDATE);
+			// create twice as many timeseries as folders are allowed to be open
+			final List<RecordedDataStorage> timeseries = new ArrayList<RecordedDataStorage>();
+			for (int idx = 0; idx < 2 * maxOpenFolders; idx++) {
+				final RecordedDataStorage rds = slots.createRecordedDataStorage("test_" + idx, cfg);
+				timeseries.add(rds);
+				rds.insertValue(new SampledValue(new FloatValue(3.322F), System.currentTimeMillis(), Quality.GOOD));
+			}
+			// note: the test condition will not necessarily hold true immediately after creation of the files, since the 
+			// closing of files has to be done asynchronously... hence, wait for a short time
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			// check that it works on write
+			Assert.assertTrue("Too many open folders: " + slots.getProxy().openFolders() + ", allowed: " + maxOpenFolders, 
+						slots.getProxy().openFolders() <= maxOpenFolders);
+			double sum = 0;
+			for (RecordedDataStorage rds: timeseries) { // open all the files for reading
+				sum += rds.getNextValue(Long.MIN_VALUE).getValue().getDoubleValue();
+			}
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			// check that it works on read
+			Assert.assertTrue("Too many open folders on read: " + slots.getProxy().openFolders() + ", allowed: " + maxOpenFolders + ". Calculated sum: " + sum, 
+						slots.getProxy().openFolders() <= maxOpenFolders);
+		}
+	}
+	
 
 }

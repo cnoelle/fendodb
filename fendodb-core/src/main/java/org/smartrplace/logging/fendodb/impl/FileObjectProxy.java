@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -389,7 +390,7 @@ public final class FileObjectProxy {
 			 */
 			if (requiresNewFolder) {
 				newDayStarted(strDate);
-				controlHashtableSize();
+				//controlHashtableSize(); is cleared anyway
 				final FileObjectList first = getFileObjectList(strDate, label);
 	
 				/*
@@ -1039,6 +1040,7 @@ public final class FileObjectProxy {
 		final String id = label + day;
 		return openFilesHM.computeIfAbsent(id, key -> {
 			try {
+				controlHashtableSize();
 				return new FileObjectList(rootNodeString + "/" + getDayFolderName(day) + "/" + label, cache, label, useCompatibilityMode);
 			} catch (IOException e) {
 				logger.error("Failed to construct FileObjectList",e);
@@ -1105,38 +1107,52 @@ public final class FileObjectProxy {
 			folderLock.readLock().unlock();
 		}
 	}
-
-	/** 
-	 * requires folder write lock 
-	 */
-	private void controlHashtableSize() throws IOException {
+	
+	private void controlHashtableSize() {
 		/*
 		 * hm.size() doesn't really represent the number of open files, because it contains FileObjectLists, which may
 		 * contain 1 ore more FileObjects. In most cases, there is only 1 File in a List. There will be a second File if
 		 * storage Intervall is reconfigured. Continuous reconfiguring of measurement points may lead to a
 		 * "Too many open files" Exception. In this case SlotsDb.MAX_OPEN_FOLDERS should be decreased...
 		 */
-		if (openFilesHM.size() > max_open_files) {
-			logger.debug("More then " + max_open_files
-					+ " DataStreams are opened. Flushing and closing some to not exceed OS-Limit.");
-			Iterator<FileObjectList> itr = openFilesHM.values().iterator();
-			for (int i = 0; i < (max_open_files / 5); i++) { // randomly kick
-				// out some of
-				// the
-				// FileObjectLists.
-				// -> the needed
-				// ones will be
-				// reinitialized,
-				// no problem
-				// here.
-				itr.next().closeAllFiles();
-				itr.remove();
+		if (openFilesHM.size() < max_open_files)
+			return;
+		// execute in new thread to avoid deadlock due to read lock being held
+		ForkJoinPool.commonPool().submit(() -> {
+			folderLock.writeLock().lock();
+			try {
+				if (openFilesHM.size() < max_open_files) // double checked locking, simply to avoid running this too often
+					return;
+				controlHashtableSizeInternal();
+			} catch (IOException e) {
+				logger.error("Failed to close file?", e);
+			} finally {
+				folderLock.writeLock().unlock();
 			}
+		});
+	}
+	
+
+	/** 
+	 * requires folder write lock 
+	 */
+	private void controlHashtableSizeInternal() throws IOException {
+		logger.debug("More then {} DataStreams are opened. Flushing and closing some to not exceed OS-Limit.", max_open_files);
+		Iterator<FileObjectList> itr = openFilesHM.values().iterator();
+		for (int i = 0; i < (openFilesHM.size() / 4); i++) { 
+			// randomly kick out some of the FileObjectLists.
+			// -> the needed ones will be reinitialized, no problem here.
+			itr.next().closeAllFiles();
+			itr.remove();
 		}
 	}
 	
 	private final String getDayFolderName(final long timestamp) {
 		return !useCompatibilityMode ? String.valueOf(timestamp) : TimeUtils.formatCompatibilityFolderName(timestamp);
+	}
+	
+	int openFolders() {
+		return openFilesHM.size();
 	}
 	
 }

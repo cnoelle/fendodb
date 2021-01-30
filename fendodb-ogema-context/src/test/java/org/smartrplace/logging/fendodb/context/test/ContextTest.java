@@ -19,7 +19,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.AccessController;
 import java.security.Permission;
+import java.security.PrivilegedAction;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -66,6 +69,7 @@ public class ContextTest {
 	private static final String SLF4J_VERSION = "1.7.25";
 	private static final String FENDO_VERSION = "0.1.0";
 	private static final String OGEMA_VERSION = "2.2.0";
+    private static final String MOXY_VERSION = "2.7.4";
 	private static final Path osgiStorage = Paths.get("data/osgi-storage");
 	private static final int HTTP_PORT = 4321;
 	private static final String BASE_URL = "http://localhost:" + HTTP_PORT + "/rest/fendodb";
@@ -101,9 +105,14 @@ public class ContextTest {
 				// these four options are required with the forked launcher; otherwise they are in the surefire plugin
 				CoreOptions.vmOption("-Djava.security.policy=config/all.policy"),
 				CoreOptions.vmOption("-Dorg.ogema.security=on"),
-				CoreOptions.when(getJavaVersion() >= 9).useOptions( // TODO java 11 config
-					CoreOptions.vmOption("--add-opens=java.base/jdk.internal.loader=ALL-UNNAMED"),
-					CoreOptions.vmOption("--add-modules=java.xml.bind,java.xml.ws.annotation")
+				CoreOptions.when(getJavaVersion() >= 11).useOptions(
+						CoreOptions.vmOption("--add-opens=java.base/jdk.internal.loader=ALL-UNNAMED"), //required for extension bundles in felix
+						CoreOptions.mavenBundle("com.sun.activation", "javax.activation", "1.2.0"),
+						CoreOptions.mavenBundle("javax.annotation", "javax.annotation-api", "1.3.2"),
+						CoreOptions.mavenBundle("javax.xml.bind", "jaxb-api", "2.4.0-b180830.0359"),
+						CoreOptions.mavenBundle("org.eclipse.persistence", "org.eclipse.persistence.asm", MOXY_VERSION),
+						CoreOptions.mavenBundle("org.eclipse.persistence", "org.eclipse.persistence.core", MOXY_VERSION),
+						CoreOptions.mavenBundle("org.eclipse.persistence", "org.eclipse.persistence.moxy", MOXY_VERSION)
 				),
 				CoreOptions.junitBundles(),
 				CoreOptions.mavenBundle("org.apache.felix", "org.apache.felix.framework.security", "2.6.0"),
@@ -226,7 +235,7 @@ public class ContextTest {
 			final String actions, final boolean allowOrDeny) {
 		final ConditionalPermissionUpdate cpu = cpa.newConditionalPermissionUpdate();
 		addPermission(bundle, type, name, actions, cpa, cpu, allowOrDeny, -1);
-		return cpu.commit();
+		return cpu.commit(); // => security exception => ???
 	}
 	
 	private static void addPermission(final Bundle bundle, final Class<? extends Permission> type, final String name, final String actions, 
